@@ -1,4 +1,8 @@
 // vim:ts=2:shiftwidth=2:expandtab
+
+#include <math.h>
+#include <stdio.h>
+
 #include "RS485_Wind_Direction_Transmitter.h"
 #include "RS485_Wind_Speed_Transmitter.h"
 
@@ -110,23 +114,55 @@ int main()
   //   return 0;
   // }
 
+  const int points = 40;
+
 
   while (1) {
-    double WindDirection = readWindDirection(DirectionAddress);
-    if (WindDirection >= 0) {
-      printf("WindDirection:%f\n\n", WindDirection);
-    } else {
-      printf("Please check whether the sensor connection is normal\n");
-      return 0;
+    double WindDirection = -1;
+    double WindSin = 0;
+    double WindCos = 0;
+
+    double WindSpeed = -1;
+    double WindMin = -1;
+    double WindMax = -1;
+    double WindTotal = 0;
+
+    for (int dataPoints = 0; dataPoints < points; dataPoints++) {
+      WindDirection = readWindDirection(DirectionAddress);
+      if (WindDirection < 0) {
+        printf("Please check whether the sensor connection is normal\n");
+        return 0;
+      }
+
+      WindSin += sin(WindDirection * (M_PI / 180.0));
+      WindCos += cos(WindDirection * (M_PI / 180.0));
+
+      WindSpeed = readWindSpeed(SpeedAddress);
+      if (WindSpeed < 0) {
+        printf("Please check whether the sensor connection is normal\n");
+        return 0;
+      }
+
+      if (WindMin == -1 || WindSpeed < WindSpeed) {
+        WindMin = WindSpeed;
+      }
+      if (WindMax == -1 || WindSpeed > WindMax) {
+        WindMax = WindSpeed;
+      }
+      WindTotal += WindSpeed;
     }
 
-    double WindSpeed = readWindSpeed(SpeedAddress);
-    if (WindSpeed >= 0) {
-      printf("WindSpeed:%f\n\n", WindSpeed);
-    } else {
-      printf("Please check whether the sensor connection is normal\n");
-      return 0;
-    }
+    double WindAvg = WindTotal / (double) points;
+    double WindDirectionAvg = atan2(WindSin, WindCos) * (180.0 / M_PI);
+
+    printf("Dir %f AvgDir %f Speed %f AvgSpeed %f MaxSpeed %f MinSpeed %f\n",
+      WindDirection,
+      WindDirectionAvg,
+      WindSpeed,
+      WindAvg,
+      WindMax,
+      WindMin
+    );
 
     delay(50);
   }
