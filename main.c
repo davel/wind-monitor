@@ -1,7 +1,13 @@
 // vim:ts=2:shiftwidth=2:expandtab
 
+#define _GNU_SOURCE
+
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <malloc.h>
+
+#include <curl/curl.h>
 
 #include "RS485_Wind_Direction_Transmitter.h"
 #include "RS485_Wind_Speed_Transmitter.h"
@@ -100,13 +106,42 @@ static unsigned char  __attribute__((unused)) ModifyAddress(unsigned char Addres
 
 int main()
 {
+  CURL *curl;
+
   const char DirectionAddress = 2;
   const char SpeedAddress     = 4;
+
+  const char *mqtt_username = getenv("MQTT_USERNAME");
+  if (!mqtt_username) {
+    fprintf(stderr, "No MQTT_USERNAME\n");
+    exit(1);
+  }
+
+  const char *mqtt_password = getenv("MQTT_PASSWORD");
+  if (!mqtt_password) {
+    fprintf(stderr, "No MQTT_PASSWORD\n");
+    exit(1);
+  }
+
+  const char *mqtt_client   = getenv("MQTT_CLIENT");
+  if (!mqtt_client) {
+    fprintf(stderr, "No MQTT_CLIENT\n");
+    exit(1);
+  }
+  char *url = NULL;
+  asprintf(&url, "https://api.mydevices.com/things/%s/data", mqtt_client);
 
   while (Init("/dev/ttyUSB0")) {
     delay(1000);
   }
 
+  curl_global_init(CURL_GLOBAL_ALL);
+  curl = curl_easy_init();
+
+  if (!curl) {
+    fprintf(stderr, "libcurl could not start.\n");
+    return 1;
+  }
 
   //Modify sensor address
   // if (!ModifyAddress(0, Address)) {
@@ -114,7 +149,7 @@ int main()
   //   return 0;
   // }
 
-  const int points = 40;
+  const int points = 80;
 
 
   while (1) {
@@ -159,14 +194,48 @@ int main()
       WindDirectionAvg += 180.0;
     }
 
-    printf("Dir %f AvgDir %f Speed %f AvgSpeed %f MaxSpeed %f MinSpeed %f\n",
+    char *json = NULL;
+
+    asprintf(
+      &json,
+      "["
+      "{\"channel\":1,\"value\":%f,\"type\":\"wind_direction\",\"unit\":\"deg\"},"
+      "{\"channel\":2,\"value\":%f,\"type\":\"wind_direction\",\"unit\":\"deg\"},"
+      "{\"channel\":3,\"value\":%f,\"type\":\"wind_speed\",\"unit\":\"kmh\"},"
+      "{\"channel\":4,\"value\":%f,\"type\":\"wind_speed\",\"unit\":\"kmh\"},"
+      "{\"channel\":5,\"value\":%f,\"type\":\"wind_speed\",\"unit\":\"kmh\"},"
+      "{\"channel\":6,\"value\":%f,\"type\":\"wind_speed\",\"unit\":\"kmh\"}"
+      "]",
       WindDirection,
       WindDirectionAvg,
-      WindSpeed,
-      WindAvg,
-      WindMax,
-      WindMin
+      WindSpeed * 3.6,
+      WindAvg   * 3.6,
+      WindMin   * 3.6,
+      WindMax   * 3.6
     );
+
+    if (getenv("DEBUG")) {
+      printf("%s\n", json);
+    }
+
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json);
+
+    struct curl_slist *list = NULL;
+
+    list = curl_slist_append(list, "Content-Type: application/json");
+
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+    curl_easy_setopt(curl, CURLOPT_USERNAME, mqtt_username);
+    curl_easy_setopt(curl, CURLOPT_PASSWORD, mqtt_password);
+
+    CURLcode res = curl_easy_perform(curl);
+    curl_slist_free_all(list);
+    free(json);
+
+    if (res != CURLE_OK) {
+      fprintf(stderr, "Send failed: %s\n", curl_easy_strerror(res));
+    }
 
     delay(50);
   }
