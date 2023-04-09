@@ -41,7 +41,7 @@ double readWindSpeed(unsigned char Address)
                   if (read(fd, &Data[3], 4) == 4) {
                     if (CRC16_2(Data, 5) == (Data[5] * 256 + Data[6])) {
                       ret = 1;
-                      WindSpeed = (Data[3] * 256 + Data[4]) / 10.00;
+                      WindSpeed = ((double) Data[3] * 256.0 + (double) Data[4]) / 10.00;
                     }
                   }
                 }
