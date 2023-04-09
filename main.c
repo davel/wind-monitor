@@ -143,10 +143,10 @@ int main()
         return 0;
       }
 
-      if (WindMin == -1 || WindSpeed < WindSpeed) {
+      if ((WindMin == -1) || (WindSpeed < WindMin)) {
         WindMin = WindSpeed;
       }
-      if (WindMax == -1 || WindSpeed > WindMax) {
+      if ((WindMax == -1) || (WindSpeed > WindMax)) {
         WindMax = WindSpeed;
       }
       WindTotal += WindSpeed;
@@ -154,6 +154,10 @@ int main()
 
     double WindAvg = WindTotal / (double) points;
     double WindDirectionAvg = atan2(WindSin, WindCos) * (180.0 / M_PI);
+
+    if (WindDirectionAvg < 0.0) {
+      WindDirectionAvg += 180.0;
+    }
 
     printf("Dir %f AvgDir %f Speed %f AvgSpeed %f MaxSpeed %f MinSpeed %f\n",
       WindDirection,
