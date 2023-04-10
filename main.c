@@ -149,7 +149,7 @@ int main()
   //   return 0;
   // }
 
-  const int points = 40;
+  const int points = 80;
 
 
   while (1) {
