@@ -149,7 +149,7 @@ int main()
   //   return 0;
   // }
 
-  const int points = 80;
+  const int points = 40;
 
 
   while (1) {
@@ -237,7 +237,7 @@ int main()
       fprintf(stderr, "Send failed: %s\n", curl_easy_strerror(res));
     }
 
-    delay(50);
+    delay(100);
   }
   serialClose(fd);
   return 1;
